@@ -1,0 +1,453 @@
+desc:G: Lumpy
+
+// 10: sample
+slider10:/lumpy::Sample
+slider11:0 <-12, 12, 0.01>Pitch adjustment (¢)
+slider12:0 <0, 16, 1{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16>MIDI channel (0 = all)
+
+// 20: window
+slider20:0 <0, 100, 0.1>Window start position (%)
+slider21:5 <0.1, 100, 0.1>Window width (%)
+slider22:0 <0, 100, 1>Grain pan (%)
+slider23:50 <1, 150, 1>Grain count
+
+// 30: grain
+slider30:100 <0, 10000, 1>Grain attack (ms)
+slider31:100 <0, 10000, 1>Grain sustain (ms)
+slider32:300 <0, 10000, 1>Grain decay (ms)
+slider33:-15 <-150, 150, 0.1>Grain gain (dB)
+slider34:-150 <-150, 0, 1>Grain noise (dB)
+
+// 40: effects
+slider40:0 <0, 12, 0.01>Detune (¢)
+slider41:0 <0, 24000, 1>High pass (Hz)
+slider42:24000 <1, 24000, 1>Low pass (Hz)
+slider43:0<0, 100, 0.1>Distortion (%)
+slider44:0<-60, 60, 0.1>Volume (dB)
+
+// ----------------------------------------------------------------------------
+// INIT
+// ----------------------------------------------------------------------------
+
+@init
+
+ext_tail_size = -2;
+
+//
+// Global constants
+//
+
+// Registers for the grain array.
+_BUSY = 1;
+_POS = 2;
+_START_POS = 3;
+_ATTACK = 4;
+_SUSTAIN = 5;
+_DECAY = 6;
+_GAIN = 7;
+_PAN = 8;
+_SPEED = 9;
+_DELTA = 10;
+
+// Maximum number of grains.
+_MAX_GRAINS = 300;
+
+//
+// Global variables.
+//
+
+// Buffers.
+_note_buffer = 0;
+_grain_buffer = 1000;
+_sample_buffer = 1000000;
+
+// Sample.
+_num_channels = 2;
+_audio_size = 0;
+_sample_rate = srate;
+
+// Misc.
+_note_index = 0;
+
+// Output.
+_spl0 = 0;
+_spl1 = 0;
+
+//
+// Sample loading.
+//
+
+function load_sample() local(handle) (
+  // Open audio file.
+  handle = file_open(slider10);
+
+  // If our file is a RIFF then _num_channels and _sample_rate will be set.
+  file_riff(handle, _num_channels, _sample_rate);
+
+  // Put sample to the _sample_buffer.
+  _num_channels > 0 ? _audio_size = file_mem(handle, _sample_buffer, file_avail(handle));
+
+  // Get the length of audio in seconds.
+  _audio_length = (_audio_size / _num_channels) / _sample_rate;
+
+  // We have our samples stored (or not if the above failed) in _sample_buffer, so close the file.
+  file_close(handle);
+);
+
+load_sample();
+
+// ----------------------------------------------------------------------------
+// SLIDER
+// ----------------------------------------------------------------------------
+
+@slider
+
+// Slider-based configuration global variables.
+_cfg_start_pos =  slider20 / 100 * _audio_size; // Start position of the grain.
+_cfg_width = slider21 / 100 * _audio_size;
+_cfg_pan = slider22;
+_cfg_attack = slider30 / 1000 * srate; // Size of the fade in/out.
+_cfg_sustain = slider31 / 1000 * srate;
+_cfg_decay = slider32 / 1000 * srate;
+_cfg_gain = 2 ^ (slider33 / 6);
+_cfg_grain_count = slider23;
+_cfg_rate = (_cfg_attack + _cfg_sustain + _cfg_decay) / _cfg_grain_count;
+_cfg_sample_speed = pow(1 + abs(slider11) / 12, sign(slider11));
+_cfg_detune_base = 1 + abs(slider40) / 12;
+_cfg_noise_volume = slider34 == -120 ? 0 : 2 ^ (slider34/6);
+_cfg_distortion = 2 * min(slider43/100,.999) / (1 - min(slider43/100,.999));
+_cfg_channel = slider12;
+_cfg_volume = 2 ^ (slider44 / 6);
+_cfg_volume_seek < 0 ? _cfg_volume_seek = 1;
+
+// Set high pass globals.
+function init_hp() local(damp, c, oldamp) (
+  damp = 4;
+  c = 1 / tan($pi * slider41 / srate);
+  _hp_fk = 1 / (1 + c * (c + damp));
+  _hp_fa1 = 2 * (1 - c * c) * _hp_fk;
+  _hp_fa0 = (1 + c * (c - damp)) * _hp_fk;
+);
+
+init_hp();
+
+// Set low pass globals.
+function init_lp() local(damp, c, oldamp) (
+  damp = 4;
+  c = 1 / tan($pi * slider42 / srate);
+  _lp_fk = 1 / (1 + c * (c + damp));
+  _lp_fa1 = 2 * (1 - c * c) * _lp_fk;
+  _lp_fa0 = (1 + c * (c - damp)) * _lp_fk;
+);
+
+init_lp();
+
+// ----------------------------------------------------------------------------
+// BLOCK
+// ----------------------------------------------------------------------------
+
+@block
+
+function get_midi_notes() local(offset, msg1, msg2, msg3, msg_type, note, value, channel) (
+  while (midirecv(offset, msg1, msg2, msg3)) (
+    msg_type = (msg1 / 16) | 0;
+    note = msg2;
+    value = msg3;
+    channel = msg1 & $x0F;
+
+    (_cfg_channel == 0 || _cfg_channel == channel + 1 ) ? (
+      // TODO: Midi channel
+
+      // Note on.
+      msg_type == 9 ? (
+        _note_buffer[note] = value;
+      );
+
+      // Note off.
+      msg_type == 8 ? (
+        _note_buffer[note] = 0;
+      );
+
+
+      // Passthrough MIDI events.
+      midisend(offset, msg1, msg2, msg3);
+    );
+  );
+);
+
+get_midi_notes();
+
+function update_volume() (
+  _cfg_volume_seek > 0 ? (
+    _vol_adj = (_cfg_volume - _vol_adj_prev) / samplesblock;
+  ):(
+    _vol_adj = 0;
+    _vol_adj_prev = _cfg_volume;
+  );
+  _cfg_volume_seek = -1;
+);
+
+update_volume();
+
+
+// ----------------------------------------------------------------------------
+// SAMPLE
+// ----------------------------------------------------------------------------
+
+@sample
+
+function get(id, param) (
+  _grain_buffer[param + id * _MAX_GRAINS];
+);
+
+function set(id, param, value) (
+  _grain_buffer[param + id * _MAX_GRAINS] = value;
+);
+
+function sinc(x) (
+  x == 0 ? 1 : sin($pi * x) / $pi * x;
+);
+
+function interpolate_linear(pos, t) local(x1, x2, return) (
+  x1 = _sample_buffer[pos];
+  x2 = _sample_buffer[pos + 2];
+
+  return = x1 + (x2 - x1) * t;
+);
+
+function interpolate_hermite(pos, t) local(x0, x1, x2, x3, c0, c1, c2, c3, return) (
+  x0 = _sample_buffer[pos - 2];
+  x1 = _sample_buffer[pos];
+  x2 = _sample_buffer[pos + 2];
+  x3 = _sample_buffer[pos + 4];
+
+  c0 = x1;
+  c1 = .5 * (x2 - x0);
+  c2 = x0 - (2.5 * x1) + (2 * x2) - (.5 * x3);
+  c3 = (.5 * (x3 - x0)) + (1.5 * (x1 - x2));
+  return = (((((c3 * t) + c2) * t) + c1) * t) + c0;
+);
+
+function interpolate_sinc(pos, t) local(window, half_window, ii, result) (
+  window = 12; // Number of samples.
+  half_window = window / 2;
+  pos = pos - half_window * 2; // Go back half of the window size (times two, because we have 2 channels).
+  t = half_window + t; // Set the interpolated point to be in the middle of the window.
+
+  // Calculate interpolated point.
+  ii = 0;
+  result = 0;
+  while (ii < window) (
+    result += _sample_buffer[pos + ii * 2] * sinc(t - ii);
+    ii += 1;
+  );
+
+  result;
+);
+
+function highpass() (
+  slider41 > 0 ? (
+    _hp_fd0l = (_hp_fk * _spl0) - (_hp_fa1 * _hp_fd1l) - (_hp_fa0 * _hp_fd2l);
+    _hp_fd0r = (_hp_fk * _spl1) - (_hp_fa1 * _hp_fd1r) - (_hp_fa0 * _hp_fd2r);
+
+    _spl0 -= _hp_fd0l + _hp_fd1l + _hp_fd1l + _hp_fd2l;
+    _spl1 -= _hp_fd0r + _hp_fd1r + _hp_fd1r + _hp_fd2r;
+
+    _hp_fd2l = _hp_fd1l;
+    _hp_fd2r = _hp_fd1r;
+
+    _hp_fd1l = _hp_fd0l;
+    _hp_fd1r = _hp_fd0r;
+  );
+);
+
+function lowpass() (
+  slider42 < 24000 ? (
+    _lp_fd0l = (_lp_fk * _spl0) - (_lp_fa1 * _lp_fd1l) - (_lp_fa0 * _lp_fd2l);
+    _lp_fd0r = (_lp_fk * _spl1) - (_lp_fa1 * _lp_fd1r) - (_lp_fa0 * _lp_fd2r);
+
+    _spl0 = _lp_fd0l + _lp_fd1l + _lp_fd1l + _lp_fd2l;
+    _spl1 = _lp_fd0r + _lp_fd1r + _lp_fd1r + _lp_fd2r;
+
+    _lp_fd2l = _lp_fd1l;
+    _lp_fd2r = _lp_fd1r;
+
+    _lp_fd1l = _lp_fd0l;
+    _lp_fd1r = _lp_fd0r;
+  );
+);
+
+function adjustment() local(adj1, adj2, dadj, adj1_s) (
+  // Gain.
+  (_cfg_distortion > 0) ? (
+    _spl0 = min(max(_spl0, -1), 1);
+    _spl1 = min(max(_spl1, -1), 1);
+    _spl0 = (1 + _cfg_distortion) * _spl0 / (1 + _cfg_distortion * abs(_spl0));
+    _spl1 = (1 + _cfg_distortion) * _spl1 / (1 + _cfg_distortion * abs(_spl1));
+  );
+
+  adj1 = 2 ^ (slider44 / 6);
+  adj2 = 2 ^ (150 / 6);
+
+  // Apply volume.
+  _spl0 *= _vol_adj_prev;
+  _spl1 *= _vol_adj_prev;
+  _vol_adj_prev += _vol_adj;
+);
+
+function update_grain(id, speed, gain) local(cur_pos, left, right, fade_gain, step, step_integer, factor) (
+  // Initialize playback.
+  get(id, _BUSY) == 0 ? (
+    speed *= _cfg_sample_speed; // Sample rate adjustment.
+    speed *= pow(_cfg_detune_base, rand(1) < 0.5 ? -1 : 1); // Detune adjustment.
+    ss = speed;
+    set(id, _BUSY, 1);
+    set(id, _POS, 0);
+    set(id, _START_POS, _cfg_start_pos + ceil(rand(_cfg_width))); // Randomly offset start pos.
+    set(id, _ATTACK, _cfg_attack * speed * _num_channels);
+    set(id, _SUSTAIN, _cfg_sustain * speed * _num_channels);
+    set(id, _DECAY, _cfg_decay * speed * _num_channels);
+    set(id, _SIZE, get(id, _ATTACK) + get(id, _SUSTAIN) + get(id, _DECAY));
+    set(id, _GAIN, _cfg_gain * gain);
+    set(id, _PAN, (_cfg_pan - floor(rand(2 * _cfg_pan))) / 100);
+    set(id, _SPEED, speed);
+    set(id, _DELTA, 0);
+  );
+
+  // Playback in progress.
+  get(id, _BUSY) == 1 ? (
+    cur_pos = get(id, _START_POS) + get(id, _POS);
+
+    // Get interpolated values for left and right channel.
+    left = interpolate_linear(cur_pos, get(id, _DELTA));
+    right = interpolate_linear(cur_pos + 1, get(id, _DELTA));
+
+    // Add white noise.
+    (_cfg_noise_volume > 0) ? (
+      left += _cfg_noise_volume * rand(2) - 1;
+      right += _cfg_noise_volume * rand(2) - 1;
+    );
+
+    // Apply envelope.
+    fade_gain = 1;
+    get(id, _POS) < get(id, _ATTACK) ? fade_gain = get(id, _POS) / get(id, _ATTACK);
+    get(id, _POS) > (get(id, _ATTACK) + get(id, _SUSTAIN)) ? fade_gain = (get(id, _SIZE) - get(id, _POS)) / get(id, _DECAY);
+
+    // Apply gain.
+    left = left * fade_gain * get(id, _GAIN);
+    right = right * fade_gain * get(id, _GAIN);
+
+    // Apply pan.
+    left *= 1 - get(id, _PAN);
+    right *= 1 + get(id, _PAN);
+
+    // Output grain.
+    _spl0 += left;
+    _spl1 += right;
+
+    // Calculate next step.
+    step = get(id, _DELTA) + get(id, _SPEED);
+    step_integer = floor(step);
+
+    // Save delta for interpolation in the next step.
+    set(id, _DELTA, step - step_integer);
+
+    // Increase grain position by the step * 2 (because stereo).
+    set(id, _POS, get(id, _POS) + 2 * step_integer);
+
+    // Playback completed.
+    get(id, _POS) >= get(id, _SIZE) && set(id, _BUSY, 0);
+  );
+);
+
+function can_create_grain() local(result) (
+  _rate_counter += 1;
+  _rate_counter >= _cfg_rate && _rate_counter = 0;
+  result = _rate_counter == 1;
+);
+
+function init_first_available_grain(speed, gain) local(ii) (
+  ii = 0;
+  while (ii < _MAX_GRAINS) (
+    get(ii, _BUSY) == 0 && (
+      update_grain(ii, speed, gain);
+      ii = _MAX_GRAINS;
+    );
+
+    ii += 1;
+  );
+);
+
+function update_busy_grains() local(ii) (
+  ii = 0;
+  while(ii < _MAX_GRAINS) (
+    get(ii, _BUSY) == 1 && (
+      update_grain(ii, -1, -1);
+      _busy_grain_count = ii;
+    );
+    ii += 1;
+  );
+);
+
+function generate_sound() local(ii, freq, speed, velocity, index) (
+  _spl0 = 0;
+  _spl1 = 0;
+
+  // Generate new grains.
+  can_create_grain() ? (
+    ii = 0;
+    while(ii < 127) (
+      index = (ii + _note_index + 1) % 127; // Next note.
+      velocity = _note_buffer[index];
+      velocity > 0 ? (
+        freq = (440 / 32) * 2 ^ ((index  - 9) / 12);
+        speed = freq / 440;
+        init_first_available_grain(speed, velocity / 127);
+        _note_index = index;
+        ii = 127;
+      );
+      ii += 1;
+    );
+  );
+
+  // Continue to play existing grains.
+  update_busy_grains();
+
+  // Filters.
+  highpass();
+  lowpass();
+  adjustment();
+
+  spl0 += _spl0;
+  spl1 += _spl1;
+);
+
+_audio_size && play_state && generate_sound();
+
+// ----------------------------------------------------------------------------
+// GFX
+// ----------------------------------------------------------------------------
+
+@gfx
+
+function draw() local(start_pos, end_pos) (
+  start_pos = _audio_length * (slider20 / 100);
+  end_pos = start_pos + (slider30 + slider31 + slider32) / 1000 + _audio_length * (slider21 / 100);
+
+  gfx_set(0.8, 0.8, 0.8);
+  gfx_x = 12;
+  gfx_y = 12;
+  gfx_drawstr("Audio length: ");
+  gfx_drawnumber(_audio_length, 3);
+  gfx_x = 12;
+  gfx_y += 12;
+  gfx_drawstr("Window start: ");
+  gfx_drawnumber(start_pos, 3);
+  gfx_x = 12;
+  gfx_y += 12;
+  (end_pos > _audio_length) ? gfx_set(0.9, 0.3, 0);
+  gfx_drawstr("Window end:   ");
+  gfx_drawnumber(end_pos, 3);
+);
+
+draw();

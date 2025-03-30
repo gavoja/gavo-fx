@@ -1,0 +1,43 @@
+desc:G: Sweep
+
+slider1:0 <0,800,10>freq (Hz)
+slider2:1<0,10,0.05>width (0=narrow, 10=wide)
+slider3:6<-120,12,1>wet fade in (dB)
+slider4:-120<-120,12,1>dry fade out (dB)
+slider5:0<0,1,1{normal,notch}>mode
+
+@slider
+
+freq = slider1;
+max_freq = 800;
+
+vol = 120;
+step = vol / max_freq;
+bandwidth = slider2;
+wet_delta = freq / max_freq * slider3;
+dry_delta = freq * (slider4 / max_freq);
+
+dampening = bandwidth;  // * 0.999 + 0.001;
+c = (1 / tan($pi * slider1 / srate));
+a2 = 1 + c * (c + dampening);
+fa1 = 2 * (1 - c * c) / a2;
+fa0 = (1 + c * (c - dampening)) / a2;
+fk = c * dampening / a2;
+
+wetsign = slider5 ? - 1 : 1;
+wet = 2 ^ (wet_delta / 6) * wetsign;
+dry = 2 ^ (dry_delta / 6);
+lastdamp = dampening;
+
+@sample
+
+freq > 0 ? (
+  d0_l = fk * spl0 - (fa1 * fd1_l + fa0 * fd2_l);
+  d0_r = fk * spl1 - (fa1 * fd1_r + fa0 * fd2_r);
+  spl0 = wet * (d0_l - fd2_l) + dry * spl0;
+  spl1 = wet * (d0_r - fd2_r) + dry * spl1;
+  fd2_l = fd1_l;
+  fd2_r = fd1_r;
+  fd1_l = d0_l;
+  fd1_r = d0_r;
+);

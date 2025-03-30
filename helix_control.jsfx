@@ -1,0 +1,203 @@
+desc:G: Helix Control
+
+slider1:0<0,24,1{ ,boost,chorus,clean,crunch,delay,drive,flanger,fx,gain,gate,pan,pan left,pan right,phaser,pitch,radio,reverb,solo,tremolo,volume,LFO,PRESET,SNAPSHOT,TEMPO}>Label 01
+slider2:0<0,128>CC value for note 01
+slider3:0<0,24,1{ ,boost,chorus,clean,crunch,delay,drive,flanger,fx,gain,gate,pan,pan left,pan right,phaser,pitch,radio,reverb,solo,tremolo,volume,LFO,PRESET,SNAPSHOT,TEMPO}>Label 02
+slider4:0<0,128>CC value for note 02
+slider5:0<0,24,1{ ,boost,chorus,clean,crunch,delay,drive,flanger,fx,gain,gate,pan,pan left,pan right,phaser,pitch,radio,reverb,solo,tremolo,volume,LFO,PRESET,SNAPSHOT,TEMPO}>Label 03
+slider6:0<0,128>CC value for note 03
+slider7:0<0,24,1{ ,boost,chorus,clean,crunch,delay,drive,flanger,fx,gain,gate,pan,pan left,pan right,phaser,pitch,radio,reverb,solo,tremolo,volume,LFO,PRESET,SNAPSHOT,TEMPO}>Label 04
+slider8:0<0,128>CC value for note 04
+slider9:0<0,24,1{ ,boost,chorus,clean,crunch,delay,drive,flanger,fx,gain,gate,pan,pan left,pan right,phaser,pitch,radio,reverb,solo,tremolo,volume,LFO,PRESET,SNAPSHOT,TEMPO}>Label 05
+slider10:0<0,128>CC value for note 05
+slider11:0<0,24,1{ ,boost,chorus,clean,crunch,delay,drive,flanger,fx,gain,gate,pan,pan left,pan right,phaser,pitch,radio,reverb,solo,tremolo,volume,LFO,PRESET,SNAPSHOT,TEMPO}>Label 06
+slider12:0<0,128>CC value for note 06
+slider13:0<0,24,1{ ,boost,chorus,clean,crunch,delay,drive,flanger,fx,gain,gate,pan,pan left,pan right,phaser,pitch,radio,reverb,solo,tremolo,volume,LFO,PRESET,SNAPSHOT,TEMPO}>Label 07
+slider14:0<0,128>CC value for note 07
+slider15:0<0,24,1{ ,boost,chorus,clean,crunch,delay,drive,flanger,fx,gain,gate,pan,pan left,pan right,phaser,pitch,radio,reverb,solo,tremolo,volume,LFO,PRESET,SNAPSHOT,TEMPO}>Label 08
+slider16:0<0,128>CC value for note 08
+slider17:0<0,24,1{ ,boost,chorus,clean,crunch,delay,drive,flanger,fx,gain,gate,pan,pan left,pan right,phaser,pitch,radio,reverb,solo,tremolo,volume,LFO,PRESET,SNAPSHOT,TEMPO}>Label 09
+slider18:0<0,128>CC value for note 09
+slider19:0<0,24,1{ ,boost,chorus,clean,crunch,delay,drive,flanger,fx,gain,gate,pan,pan left,pan right,phaser,pitch,radio,reverb,solo,tremolo,volume,LFO,PRESET,SNAPSHOT,TEMPO}>Label 10
+slider20:0<0,128>CC value for note 10
+slider21:0<0,24,1{ ,boost,chorus,clean,crunch,delay,drive,flanger,fx,gain,gate,pan,pan left,pan right,phaser,pitch,radio,reverb,solo,tremolo,volume,LFO,PRESET,SNAPSHOT,TEMPO}>Label 11
+slider22:0<0,128>CC value for note 11
+slider23:0<0,24,1{ ,boost,chorus,clean,crunch,delay,drive,flanger,fx,gain,gate,pan,pan left,pan right,phaser,pitch,radio,reverb,solo,tremolo,volume,LFO,PRESET,SNAPSHOT,TEMPO}>Label 12
+slider24:0<0,128>CC value for note 12
+slider25:0<0,24,1{ ,boost,chorus,clean,crunch,delay,drive,flanger,fx,gain,gate,pan,pan left,pan right,phaser,pitch,radio,reverb,solo,tremolo,volume,LFO,PRESET,SNAPSHOT,TEMPO}>Label 13
+slider26:0<0,128>CC value for note 13
+slider27:0<0,24,1{ ,boost,chorus,clean,crunch,delay,drive,flanger,fx,gain,gate,pan,pan left,pan right,phaser,pitch,radio,reverb,solo,tremolo,volume,LFO,PRESET,SNAPSHOT,TEMPO}>Label 14
+slider28:0<0,128>CC value for note 14
+slider29:0<0,24,1{ ,boost,chorus,clean,crunch,delay,drive,flanger,fx,gain,gate,pan,pan left,pan right,phaser,pitch,radio,reverb,solo,tremolo,volume,LFO,PRESET,SNAPSHOT,TEMPO}>Label 15
+slider30:0<0,128>CC value for note 15
+slider31:0<0,24,1{ ,boost,chorus,clean,crunch,delay,drive,flanger,fx,gain,gate,pan,pan left,pan right,phaser,pitch,radio,reverb,solo,tremolo,volume,LFO,PRESET,SNAPSHOT,TEMPO}>Label 16
+slider32:0<0,128>CC value for note 16
+slider33:0<0,24,1{ ,boost,chorus,clean,crunch,delay,drive,flanger,fx,gain,gate,pan,pan left,pan right,phaser,pitch,radio,reverb,solo,tremolo,volume,LFO,PRESET,SNAPSHOT,TEMPO}>Label 17
+slider34:0<0,128>CC value for note 17
+slider35:0<0,24,1{ ,boost,chorus,clean,crunch,delay,drive,flanger,fx,gain,gate,pan,pan left,pan right,phaser,pitch,radio,reverb,solo,tremolo,volume,LFO,PRESET,SNAPSHOT,TEMPO}>Label 18
+slider36:0<0,128>CC value for note 18
+slider37:0<0,24,1{ ,boost,chorus,clean,crunch,delay,drive,flanger,fx,gain,gate,pan,pan left,pan right,phaser,pitch,radio,reverb,solo,tremolo,volume,LFO,PRESET,SNAPSHOT,TEMPO}>Label 19
+slider38:0<0,128>CC value for note 19
+slider39:0<0,24,1{ ,boost,chorus,clean,crunch,delay,drive,flanger,fx,gain,gate,pan,pan left,pan right,phaser,pitch,radio,reverb,solo,tremolo,volume,LFO,PRESET,SNAPSHOT,TEMPO}>Label 20
+slider40:0<0,128>CC value for note 20
+slider50:0<0,100,1>LFO neutral point (%)
+
+@init
+
+CC_REF = 1000;
+MAX_NOTES = 20;
+MAX_CHANNELS = 8; // Leave other 8 for light control.
+
+function initialize_map() local(note) (
+  note = 1;
+  while (note <= MAX_NOTES) (
+    CC_MAP[CC_REF + note] = slider(2 * note);
+    note += 1;
+  );
+);
+
+function get_note(label) local(note, result) (
+  result = 0;
+  note = 1;
+  while (note <= MAX_NOTES) (
+    result = slider(note * 2 - 1) == label ? note : 0;
+    result > 0 ? (note = MAX_NOTES);
+    note += 1;
+  );
+
+  result;
+);
+
+LABEL_LFO = 21;
+LABEL_PRESET = 22;
+LABEL_SNAPSHOT = 23;
+LABEL_TEMPO = 24;
+
+MSG_TYPE_NOTE_OFF = 8;
+MSG_TYPE_NOTE_ON = 9;
+MSG_TYPE_CC = 11;
+MSG_TYPE_PC = 12;
+
+LFO_REF = 2000;
+LFO_MAP = 0;
+LFO_SPEED = 4;
+
+// Globals
+offset = 0;
+state = 0;
+pos = 0;
+
+@slider
+
+initialize_map();
+
+// TODO: Update 127 in helix to the next note of the LFO.
+LFO_CC = CC_MAP[CC_REF + get_note(LABEL_LFO)] + 1;
+LFO_NEUTRAL = slider(50);
+
+@block
+
+function send_cc (note, value, offset, channel) local(is_tempo, is_snapshot, is_preset, is_lfo, is_normal, cc_message) (
+  // For note-ons the value will always be greater than 0.
+  is_tempo = note == get_note(LABEL_TEMPO);
+  is_snapshot = note == get_note(LABEL_SNAPSHOT);
+  is_preset = note == get_note(LABEL_PRESET);
+  is_lfo = note == get_note(LABEL_LFO);
+  is_normal = !is_tempo && !is_snapshot && !is_preset && !is_lfo;
+
+  cc_message = CC_MAP[CC_REF + note];
+  cc_message > 0 ? (
+    // TODO: Handle preset changes.
+    is_tempo ? midisend(offset, channel + 16 * MSG_TYPE_CC, cc_message, value);
+    is_snapshot ? midisend(offset, channel + 16 * MSG_TYPE_CC, cc_message, value);
+
+    is_normal ? (
+      // For normal notes, send a pair of events. The first one is for toggling, the second for parameter adjust.
+      midisend(offset, channel + 16 * MSG_TYPE_CC, cc_message, value == 0 ? 0 : 127); // Send toggle (even note)
+      midisend(offset, channel + 16 * MSG_TYPE_CC, cc_message + 1, value); // Send param adjust (odd note).
+    );
+
+    is_lfo ? (
+      value == 0 ? (
+        midisend(offset, channel + 16 * MSG_TYPE_CC, cc_message, 0); // Toggle off
+        midisend(offset, channel + 16 * MSG_TYPE_CC, LFO_CC, LFO_NEUTRAL / 100  * 127); // Neutralize LFO parameter.
+        LFO_MAP[LFO_REF + channel] = 0; // Reset LFO value. It is used in send_tremolo_sine() function.
+      ) : (
+        midisend(offset, channel + 16 * MSG_TYPE_CC, cc_message, 127); // Toggle on.
+        LFO_MAP[LFO_REF + channel] = value; // Save LFO value. It is used in send_tremolo_sine() function.
+      );
+    );
+  );
+);
+
+function reset_cc () local(note, channel, cc_message) (
+  note = 1;
+  while (note <= MAX_NOTES) (
+    cc_message = CC_MAP[CC_REF + note];
+    cc_message > 0 ? (
+      channel = 0;
+      while (channel < MAX_CHANNELS) (
+        send_cc(note, 0, 0, channel);
+        channel += 1;
+      );
+    );
+
+    note +=1;
+  );
+);
+
+function send_tremolo_sine () local(value, intensity, amplitude, channel) (
+  // Send value 16 times per beat.
+  beat_position > pos + 0.0625 ? (
+    pos = beat_position;
+
+    channel = 0;
+    while (channel < MAX_CHANNELS) (
+      value = LFO_MAP[LFO_REF + channel];
+      value > 0 ? (
+        // Amplitude is based on the tremolo note velocity.
+        intensity = floor(value / 2);
+        amplitude = intensity * sin(LFO_SPEED * $pi * beat_position + 1) + 63 + 63 - intensity;
+        midisend(offset, channel + 16 * MSG_TYPE_CC, LFO_CC, amplitude);
+      );
+      channel += 1;
+    );
+  );
+);
+
+// -----------------------------------------------------------------------------
+// Main loop
+// -----------------------------------------------------------------------------
+
+function main () local(msgType, note, channel, bank, value, msg1, msg2, msg3) (
+  // Reset on playback start.
+  // Send tremolo sine.
+  while (
+    play_state != state ? (
+      state = play_state;
+      state == 1  ? reset_cc();
+    );
+
+    play_state == 1 ? send_tremolo_sine();
+  );
+
+  // Catch MIDI notes on input and map to CC messages.
+  while (midirecv(offset, msg1, msg2, msg3)) (
+    msgType = (msg1 / 16) | 0;
+    note = msg2;
+    channel = msg1 - (msgType * 16);
+    bank = msg2;
+    value = msg3;
+
+    // Transpose channel and note.
+    channel = channel * 5 + 5 - floor(note / 20);
+    note = note % MAX_NOTES;
+
+    msgType == MSG_TYPE_NOTE_ON || msgType == MSG_TYPE_NOTE_OFF
+      ? send_cc(note, value, offset, channel) // Toggle switches.
+      : midisend(offset, msg1, msg2, msg3); // Pass through non-note messages.
+  );
+);
+
+main();
+
